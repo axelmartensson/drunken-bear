@@ -5,6 +5,7 @@ from pygame.locals import *
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 PIXELS_PER_METER = 10
+MAX_DY = 10 
 
 class Level(object):
     def __init__(self):
@@ -49,6 +50,7 @@ class Ball:
         self.color = color
         self.movingLeft = False
         self.movingRight = False
+        self.facingForward = True
         self.jumping = False
         self.falling = True 
         self.fallingFrames = 1
@@ -72,17 +74,17 @@ class Ball:
             self.posy += self.dy    
 
         elif self.falling:
-            self.dy+=-self.fallingFrames/4;
+            if self.dy < MAX_DY:
+                self.dy+=self.fallingFrames/4;
+                self.fallingFrames +=1
             self.posy += self.dy    
-            self.fallingFrames -=1
         else:
             self.dy = 0
-
         dx = 3
         if self.movingLeft:
-            self.posx += dx
-        if self.movingRight:
             self.posx -= dx
+        if self.movingRight:
+            self.posx += dx
         pygame.draw.circle(screen, self.color,(self.posx-camera.left,
                                                self.posy), self.size)
         self.rect.centerx = self.posx-camera.left
@@ -98,13 +100,42 @@ class Player(Ball):
        Ball.update(self)
        camera.centerx = self.posx
 
+class Badguy(Ball):
+    # TODO: add code for moving badguy that moves back and forth across the
+    # platform
+    pass
+
 class Bottle(Ball):
+    def __init__(self, position, size, color, facingForward):
+        Ball.__init__(self, position, size, color)
+        self.fallingFrames = 80
+        if facingForward:
+            self.dx = 4 
+        else:
+            self.dx = -4
     def update(self):
-        Ball.update(self)
+        self.posx += self.dx 
+
+        self.dy=13-self.fallingFrames/4;
+        self.fallingFrames -= 1
+        self.posy += self.dy
         for badguy in badguys:
             if self.rect.colliderect(badguy.rect):
                 badguys.remove(badguy)
                 objects.remove(badguy)
+                return
+
+        for tile in tiles:
+            if self.rect.colliderect(tile.rect):
+                objects.remove(self)
+                return
+         
+        pygame.draw.circle(screen, self.color,(self.posx-camera.left,
+                                               self.posy), self.size)
+        self.rect.centerx = self.posx-camera.left
+        self.rect.centery = self.posy
+        screen.fill((255,255,0), self.rect)
+
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), DOUBLEBUF)
 level = Level()
@@ -123,10 +154,7 @@ player = Player((posx, posy), 20, (255,0,0))
 objects.append(player)
 camera = pygame.rect.Rect((0,0), (SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
-marker = Bottle((posx-camera.left, posy), 10, (0,0,0))
-markerPos = (posx-camera.left, posy)
-objects.append(marker)
-
+framesSinceLastBottle = 0
 while 1:
     screen.fill((0,0,255))
     for event in pygame.event.get():
@@ -139,15 +167,18 @@ while 1:
                 sys.exit()
             elif event.key == K_F1:
                 pygame.display.toggle_fullscreen()
-            elif event.key == K_SPACE:
-                marker.posx = player.posx
-                marker.posy = player.posy
+            elif event.key == K_SPACE and framesSinceLastBottle > 20:
+                objects.append(Bottle((player.posx, player.posy-5), 10, (0,0,0),
+                                     player.facingForward))
+                framesSinceLastBottle = 0
             elif event.key == K_w and not player.jumping:
                 player.jump()
             elif event.key == K_a:
                 player.movingLeft = True
+                player.facingForward = False 
             elif event.key == K_d:
                 player.movingRight = True
+                player.facingForward = True
             elif event.key == K_g:
                 pass
         elif event.type == KEYUP:
@@ -160,5 +191,7 @@ while 1:
     for obj in objects:
         if camera.collidepoint((obj.posx, obj.posy)):
             obj.update()
+    if framesSinceLastBottle < 40:
+        framesSinceLastBottle += 1
     clock.tick(40)
     pygame.display.flip()
