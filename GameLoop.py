@@ -193,5 +193,5 @@ while 1:
             obj.update()
     if framesSinceLastBottle < 40:
         framesSinceLastBottle += 1
-    clock.tick(40)
+    clock.tick(60)
     pygame.display.flip()
