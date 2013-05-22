@@ -23,7 +23,7 @@ class Level(object):
                 if char == "-":
                     objects.append(Tile(position=(x*pix,y*pix)))
                 elif char == "x":
-                    objects.append(Ball((x*pix,y*pix), 20, (0,255,0)))
+                    objects.append(Badguy((x*pix,y*pix), 20, (0,255,0)))
                 x += 1
             y += 1
             x=0
@@ -101,9 +101,12 @@ class Player(Ball):
        camera.centerx = self.posx
 
 class Badguy(Ball):
-    # TODO: add code for moving badguy that moves back and forth across the
-    # platform
-    pass
+    def __init__(self, position, size, color):
+        Ball.__init__(self, position, size, color)
+        self.movingRight= True
+    def update(self):
+        Ball.update(self)
+        #TODO: add code to make badguy change direction at end of platform
 
 class Bottle(Ball):
     def __init__(self, position, size, color, facingForward):
