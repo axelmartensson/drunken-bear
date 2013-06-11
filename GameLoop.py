@@ -24,18 +24,21 @@ class Level(object):
                     objects.append(Tile(position=(x*pix,y*pix)))
                 elif char == "x":
                     objects.append(Badguy((x*pix,y*pix), 20, (0,255,0)))
+                elif char == "|":
+                    objects.append(Tile(position=(x*pix,y*pix), endTile=True))
                 x += 1
             y += 1
             x=0
         return objects
     
 class Tile(object):
-    def __init__(self, position, color=(123,123,123)):
+    def __init__(self, position, color=(123,123,123), endTile=False):
         self.posx, self.posy = position
         self.rect = pygame.rect.Rect(position, (10, 10))
         self.color = color
         self.surface = pygame.Surface((10,10))
         self.surface.fill(color)
+        self.endTile = endTile
     def update(self): 
         screen.blit(self.surface, (self.posx-camera.left,self.posy))
         self.rect.topleft=(self.posx-camera.left,self.posy)
@@ -54,17 +57,12 @@ class Ball:
         self.jumping = False
         self.falling = True 
         self.fallingFrames = 1
+        self.dx = 3
         self.dy = 0
 
     def update(self):
-        self.falling = True 
-        for tile in tiles:
-            if self.rect.colliderect(tile.rect):
-                if self.dy > 0:
-                    self.jumping = False
-                self.falling = False 
-                self.fallingFrames = 1
-                break
+        
+        self.checkForGround()
 
         if self.jumping:
             self.dy=10-self.jumpFrames/4;
@@ -80,16 +78,26 @@ class Ball:
             self.posy += self.dy    
         else:
             self.dy = 0
-        dx = 3
+            
         if self.movingLeft:
-            self.posx -= dx
+            self.posx -= self.dx
         if self.movingRight:
-            self.posx += dx
+            self.posx += self.dx
         pygame.draw.circle(screen, self.color,(self.posx-camera.left,
                                                self.posy), self.size)
         self.rect.centerx = self.posx-camera.left
         self.rect.centery = self.posy
         screen.fill((255,255,0), self.rect)
+
+    def checkForGround(self):
+        self.falling = True 
+        for tile in tiles:
+            if self.rect.colliderect(tile.rect):
+                if self.dy > 0:
+                    self.jumping = False
+                self.falling = False 
+                self.fallingFrames = 1
+                return
 
     def jump(self):
         self.jumping = True
@@ -104,10 +112,31 @@ class Badguy(Ball):
     def __init__(self, position, size, color):
         Ball.__init__(self, position, size, color)
         self.movingRight= True
+        self.dx = 2
     def update(self):
         Ball.update(self)
-        #TODO: add code to make badguy change direction at end of platform
-
+                
+    def checkForGround(self):
+        self.falling = True 
+        for tile in tiles:
+            if self.rect.colliderect(tile.rect):
+                if self.dy > 0:
+                    self.jumping = False
+                self.falling = False 
+                self.fallingFrames = 1
+                
+                if tile.endTile:
+                    self.turnAround()
+                return
+            
+    def turnAround(self):
+            if self.movingRight:
+                self.movingLeft = True
+                self.movingRight = False
+            elif self.movingLeft:
+                self.movingRight = True
+                self.movingLeft = False
+        
 class Bottle(Ball):
     def __init__(self, position, size, color, facingForward):
         Ball.__init__(self, position, size, color)
@@ -126,6 +155,7 @@ class Bottle(Ball):
             if self.rect.colliderect(badguy.rect):
                 badguys.remove(badguy)
                 objects.remove(badguy)
+                objects.remove(self)
                 return
 
         for tile in tiles:
