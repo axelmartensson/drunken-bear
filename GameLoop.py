@@ -112,7 +112,7 @@ class Badguy(Ball):
     def __init__(self, position, size, color):
         Ball.__init__(self, position, size, color)
         self.movingRight= True
-        self.dx = 2
+        self.dx = 1
     def update(self):
         Ball.update(self)
                 
