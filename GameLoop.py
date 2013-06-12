@@ -148,36 +148,38 @@ class Badguy(Ball):
                 self.movingLeft = False
         
 class Bottle(Ball):
-    def __init__(self, position, size, color, facingForward):
+    def __init__(self, position, size, color, playerFacingForward):
         Ball.__init__(self, position, size, color)
         self.fallingFrames = 80
-        if facingForward:
+        if playerFacingForward:
             self.dx = 4 
         else:
             self.dx = -4
     def update(self):
-        self.posx += self.dx 
+        self.checkForBadguys()
+        Ball.update(self)
 
-        self.dy=13-self.fallingFrames/4;
-        self.fallingFrames -= 1
-        self.posy += self.dy
+    def checkForBadguys(self):
         for badguy in badguys:
             if self.rect.colliderect(badguy.rect):
                 badguys.remove(badguy)
                 objects.remove(badguy)
                 objects.remove(self)
                 return
-
+            
+    def checkForGround(self):
         for tile in tiles:
             if self.rect.colliderect(tile.rect):
                 objects.remove(self)
                 return
-         
-        pygame.draw.circle(screen, self.color,(self.posx-camera.left,
-                                               self.posy), self.size)
-        self.rect.centerx = self.posx-camera.left
-        self.rect.centery = self.posy
-        screen.fill((255,255,0), self.rect)
+            
+    def updateHorizontalMovement(self):
+        self.posx += self.dx
+        
+    def updateVerticalMovement(self):
+        self.dy=13-self.fallingFrames/4;
+        self.fallingFrames -= 1
+        self.posy += self.dy
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), DOUBLEBUF)
