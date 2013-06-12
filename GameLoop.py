@@ -5,11 +5,13 @@ from pygame.locals import *
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 PIXELS_PER_METER = 10
-MAX_DY = 10 
+MAX_DY = 10
+
+tiles = []
+badguys = []
 
 class Level(object):
     def __init__(self):
-        print "Initializing Game"
         self.level = 0
     def load(self, number):
         pix=PIXELS_PER_METER
@@ -17,19 +19,17 @@ class Level(object):
         lvlStr = "levels/level%i.txt" % number
         res = open(lvlStr, "r")
         x,y = 0,0
-        objects = []
         for line in res.readlines():
             for char in line:
                 if char == "-":
-                    objects.append(Tile(position=(x*pix,y*pix)))
-                elif char == "x":
-                    objects.append(Badguy((x*pix,y*pix), 20, (0,255,0)))
+                    tiles.append(Tile(position=(x*pix,y*pix)))
                 elif char == "|":
-                    objects.append(Tile(position=(x*pix,y*pix), endTile=True))
+                    tiles.append(Tile(position=(x*pix,y*pix), endTile=True))
+                elif char == "x":
+                    badguys.append(Badguy((x*pix,y*pix), 20, (0,255,0)))
                 x += 1
             y += 1
             x=0
-        return objects
     
 class Tile(object):
     def __init__(self, position, color=(123,123,123), endTile=False):
@@ -114,15 +114,15 @@ class Ball:
         self.jumpFrames = 80;
 
     def fire(self):
-        objects.append(Bottle((self.posx, self.posy-5), 10, (0,0,0),
+        bottles.append(Bottle((self.posx, self.posy-5), 10, (0,0,0),
                                      self.facingForward))
-    def die(self):
-        objects.remove(self)
-
 class Player(Ball):
     def update(self):
        Ball.update(self)
        camera.centerx = self.posx
+
+    def die(self):
+        print "GAME OVER!!"
 
 class Badguy(Ball):
     def __init__(self, position, size, color):
@@ -155,7 +155,6 @@ class Badguy(Ball):
 
     def die(self):
         badguys.remove(self)
-        Ball.die(self)
         
 class Bottle(Ball):
     def __init__(self, position, size, color, playerFacingForward):
@@ -189,25 +188,20 @@ class Bottle(Ball):
         self.dy=13-self.fallingFrames/4;
         self.fallingFrames -= 1
         self.posy += self.dy
+    def die(self):
+        bottles.remove(self)
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), DOUBLEBUF)
 level = Level()
-objects = level.load(1) 
+level.load(1)
 
-tiles = []
-badguys = []
-for obj in objects:
-    if isinstance(obj, Tile):
-        tiles.append(obj)
-    else:
-        badguys.append(obj)
 posx = 400
 posy = 200
 player = Player((posx, posy), 20, (255,0,0))
-objects.append(player)
 camera = pygame.rect.Rect((0,0), (SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
+bottles = []
 framesSinceLastBottle = 0
 while 1:
     screen.fill((0,0,255))
@@ -241,9 +235,18 @@ while 1:
                 player.movingLeft = False
     for i in range(10):
         pygame.draw.circle(screen, (0,222,0),(300+i*50-camera.left, 20+i*10), 20)
-    for obj in objects:
-        if camera.collidepoint((obj.posx, obj.posy)):
-            obj.update()
+        
+    for tile in tiles:
+        if camera.collidepoint((tile.posx, tile.posy)):
+            tile.update()
+    for badguy in badguys:
+        if camera.collidepoint((badguy.posx, badguy.posy)):
+            badguy.update()
+    for bottle in bottles:
+        if camera.collidepoint((bottle.posx, bottle.posy)):
+            bottle.update()
+    player.update()
+    
     if framesSinceLastBottle < 40:
         framesSinceLastBottle += 1
     clock.tick(60)
