@@ -112,7 +112,10 @@ class Ball:
     def jump(self):
         self.jumping = True
         self.jumpFrames = 80;
-        
+
+    def fire(self):
+        objects.append(Bottle((self.posx, self.posy-5), 10, (0,0,0),
+                                     self.facingForward))
     def die(self):
         objects.remove(self)
 
@@ -219,8 +222,7 @@ while 1:
             elif event.key == K_F1:
                 pygame.display.toggle_fullscreen()
             elif event.key == K_SPACE and framesSinceLastBottle > 20:
-                objects.append(Bottle((player.posx, player.posy-5), 10, (0,0,0),
-                                     player.facingForward))
+                player.fire()
                 framesSinceLastBottle = 0
             elif event.key == K_w and not player.jumping:
                 player.jump()
