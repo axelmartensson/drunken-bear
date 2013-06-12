@@ -112,6 +112,9 @@ class Ball:
     def jump(self):
         self.jumping = True
         self.jumpFrames = 80;
+        
+    def die(self):
+        objects.remove(self)
 
 class Player(Ball):
     def update(self):
@@ -146,6 +149,10 @@ class Badguy(Ball):
             elif self.movingLeft:
                 self.movingRight = True
                 self.movingLeft = False
+
+    def die(self):
+        badguys.remove(self)
+        Ball.die(self)
         
 class Bottle(Ball):
     def __init__(self, position, size, color, playerFacingForward):
@@ -162,15 +169,14 @@ class Bottle(Ball):
     def checkForBadguys(self):
         for badguy in badguys:
             if self.rect.colliderect(badguy.rect):
-                badguys.remove(badguy)
-                objects.remove(badguy)
-                objects.remove(self)
+                badguy.die()
+                self.die()
                 return
             
     def checkForGround(self):
         for tile in tiles:
             if self.rect.colliderect(tile.rect):
-                objects.remove(self)
+                self.die()
                 return
             
     def updateHorizontalMovement(self):
