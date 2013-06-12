@@ -247,9 +247,7 @@ while 1:
                 player.movingRight = False 
             elif event.key == K_a:
                 player.movingLeft = False
-    for i in range(10):
-        pygame.draw.circle(screen, (0,222,0),(300+i*50-camera.left, 20+i*10), 20)
-        
+
     for tile in tiles:
         if camera.collidepoint((tile.posx, tile.posy)):
             tile.update()
