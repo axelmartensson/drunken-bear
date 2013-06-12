@@ -63,7 +63,22 @@ class Ball:
     def update(self):
         
         self.checkForGround()
+        self.updateVerticalMovement()
+        self.updateHorizontalMovement()
+        self.updateCollisionRect()
+        self.draw()
 
+    def checkForGround(self):
+        self.falling = True 
+        for tile in tiles:
+            if self.rect.colliderect(tile.rect):
+                if self.dy > 0:
+                    self.jumping = False
+                self.falling = False 
+                self.fallingFrames = 1
+                return
+
+    def updateVerticalMovement(self):
         if self.jumping:
             self.dy=10-self.jumpFrames/4;
             if self.jumpFrames <= 3:
@@ -79,26 +94,21 @@ class Ball:
         else:
             self.dy = 0
             
+    def updateHorizontalMovement(self):
         if self.movingLeft:
             self.posx -= self.dx
         if self.movingRight:
             self.posx += self.dx
-        pygame.draw.circle(screen, self.color,(self.posx-camera.left,
-                                               self.posy), self.size)
+
+    def updateCollisionRect(self):
         self.rect.centerx = self.posx-camera.left
         self.rect.centery = self.posy
+        
+    def draw(self):
+        pygame.draw.circle(screen, self.color,(self.posx-camera.left,
+                                               self.posy), self.size)
         screen.fill((255,255,0), self.rect)
-
-    def checkForGround(self):
-        self.falling = True 
-        for tile in tiles:
-            if self.rect.colliderect(tile.rect):
-                if self.dy > 0:
-                    self.jumping = False
-                self.falling = False 
-                self.fallingFrames = 1
-                return
-
+        
     def jump(self):
         self.jumping = True
         self.jumpFrames = 80;
