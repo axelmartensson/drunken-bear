@@ -10,9 +10,13 @@ MAX_DY = 10
 tiles = []
 badguys = []
 
-class Level(object):
+class LevelManager(object):
     def __init__(self):
         self.level = 0
+    def loadNextLevel(self):
+        self.level += 1
+        return self.load(self.level)
+        
     def load(self, number):
         pix=PIXELS_PER_METER
         self.level = number
@@ -25,11 +29,14 @@ class Level(object):
                     tiles.append(Tile(position=(x*pix,y*pix)))
                 elif char == "|":
                     tiles.append(Tile(position=(x*pix,y*pix), endTile=True))
+                elif char == "p":
+                    playerPos = (x*pix, y*pix)
                 elif char == "x":
                     badguys.append(Badguy((x*pix,y*pix), 20, (0,255,0)))
                 x += 1
             y += 1
             x=0
+        return playerPos
     
 class Tile(object):
     def __init__(self, position, color=(123,123,123), endTile=False):
@@ -193,12 +200,10 @@ class Bottle(Ball):
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), DOUBLEBUF)
-level = Level()
-level.load(1)
+levelManager = LevelManager()
+playerPos = levelManager.loadNextLevel()
 
-posx = 400
-posy = 200
-player = Player((posx, posy), 20, (255,0,0))
+player = Player(playerPos, 20, (255,0,0))
 camera = pygame.rect.Rect((0,0), (SCREEN_WIDTH, SCREEN_HEIGHT))
 clock = pygame.time.Clock()
 bottles = []
