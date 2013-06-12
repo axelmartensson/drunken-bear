@@ -158,20 +158,42 @@ class Badguy(Ball):
             if self.movingRight:
                 self.movingLeft = True
                 self.movingRight = False
+                self.facingForward = False
             elif self.movingLeft:
                 self.movingRight = True
                 self.movingLeft = False
+                self.facingForward = True
 
     def die(self):
         badguys.remove(self)
 
 class BottleThrowingBadguy(Badguy):
+    def __init__(self, position, size, color):
+        Badguy.__init__(self, position, size, color)
+        radius = size/2
+        self.triggerRect = pygame.rect.Rect(self.posx-radius-size*6, self.posy-radius, size*18, size)
+        self.hasFired = False
     def update(self):
         self.checkForPlayer()
         Badguy.update(self)
+        self.updateTriggerRect()
+        
     def checkForPlayer(self):
-        pass
-    
+        if self.movingRight and self.posx-player.posx < 0 or self.movingLeft and self.posx-player.posx > 0:
+            facingPlayer = True
+        else:
+            facingPlayer = False
+        if not self.hasFired and facingPlayer and self.triggerRect.colliderect(player.rect):
+            self.fire()
+            self.hasFired = True
+            
+    def updateTriggerRect(self):
+        self.triggerRect.centerx = self.posx-camera.left
+        self.triggerRect.centery = self.posy
+        
+    def fire(self):
+        bottles.append(BadBottle((self.posx, self.posy-5), 10, (0,0,0),
+                                 self.facingForward))
 class Bottle(Ball):
     def __init__(self, position, size, color, playerFacingForward):
         Ball.__init__(self, position, size, color)
@@ -183,6 +205,7 @@ class Bottle(Ball):
     def update(self):
         self.checkForBadguys()
         Ball.update(self)
+
 
     def checkForBadguys(self):
         for badguy in badguys:
@@ -206,6 +229,13 @@ class Bottle(Ball):
         self.posy += self.dy
     def die(self):
         bottles.remove(self)
+
+class BadBottle(Bottle):
+        def checkForBadguys(self):
+            if self.rect.colliderect(player.rect):
+                player.die()
+        def updateVerticalMovement(self):
+            self.dy = 0
 
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), DOUBLEBUF)
