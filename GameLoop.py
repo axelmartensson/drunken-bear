@@ -33,6 +33,8 @@ class LevelManager(object):
                     playerPos = (x*pix, y*pix)
                 elif char == "x":
                     badguys.append(Badguy((x*pix,y*pix), 20, (0,255,0)))
+                elif char == "b":
+                    badguys.append(BottleThrowingBadguy((x*pix,y*pix), 20, (122,122,0)))
                 x += 1
             y += 1
             x=0
@@ -162,7 +164,14 @@ class Badguy(Ball):
 
     def die(self):
         badguys.remove(self)
-        
+
+class BottleThrowingBadguy(Badguy):
+    def update(self):
+        self.checkForPlayer()
+        Badguy.update(self)
+    def checkForPlayer(self):
+        pass
+    
 class Bottle(Ball):
     def __init__(self, position, size, color, playerFacingForward):
         Ball.__init__(self, position, size, color)
