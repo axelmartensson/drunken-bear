@@ -139,8 +139,15 @@ class Badguy(Ball):
         self.movingRight= True
         self.dx = 1
     def update(self):
+        self.checkForPlayer()
         Ball.update(self)
-                
+        
+    def checkForPlayer(self):
+        if self.rect.colliderect(player.rect):
+            if player.dy > 0:
+                self.die()
+            else:
+                player.die()
     def checkForGround(self):
         self.falling = True 
         for tile in tiles:
@@ -174,11 +181,12 @@ class BottleThrowingBadguy(Badguy):
         self.triggerRect = pygame.rect.Rect(self.posx-radius-size*6, self.posy-radius, size*18, size)
         self.hasFired = False
     def update(self):
-        self.checkForPlayer()
         Badguy.update(self)
         self.updateTriggerRect()
         
     def checkForPlayer(self):
+        Badguy.checkForPlayer(self)
+        
         if self.movingRight and self.posx-player.posx < 0 or self.movingLeft and self.posx-player.posx > 0:
             facingPlayer = True
         else:
