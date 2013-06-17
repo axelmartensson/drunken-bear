@@ -244,6 +244,11 @@ class BadBottle(Bottle):
                 player.die()
                 self.die()
 
+def updateAll(objects):
+    for obj in objects:
+        if camera.collidepoint((obj.posx, obj.posy)):
+            obj.update()
+
 pygame.init()
 screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT), DOUBLEBUF)
 levelManager = LevelManager()
@@ -285,15 +290,9 @@ while 1:
             elif event.key == K_a:
                 player.movingLeft = False
 
-    for tile in tiles:
-        if camera.collidepoint((tile.posx, tile.posy)):
-            tile.update()
-    for badguy in badguys:
-        if camera.collidepoint((badguy.posx, badguy.posy)):
-            badguy.update()
-    for bottle in bottles:
-        if camera.collidepoint((bottle.posx, bottle.posy)):
-            bottle.update()
+    updateAll(tiles)
+    updateAll(badguys)
+    updateAll(bottles)
     player.update()
     
     if framesSinceLastBottle < 40:
