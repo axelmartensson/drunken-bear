@@ -5,7 +5,7 @@ from pygame.locals import *
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 PIXELS_PER_METER = 10
-MAX_DY = 10 
+MAX_DY = 3
 G = 9.81
 
 tiles = []
@@ -72,11 +72,27 @@ class Swing:
         self.phi = math.pi/32
         self.omega = 0
         self._updatependpos()
-    def _updatependpos(self):
-        dx = self.r*math.cos(self.phi)
-        dy = self.r*math.sin(self.phi)
-        self.pendx = self.posx + int(dx)
-        self.pendy = self.posy + int(dy)
+        self.state = self.stationary
+
+    def update(self):
+        self.state()
+        pygame.draw.line(screen, self.color,
+                         (self.posx-camera.left, self.posy),
+                         (self.pendx-camera.left, self.pendy),
+                         2)
+        self.rect.centerx = self.pendx-camera.left
+        self.rect.centery = self.pendy
+        screen.fill((255,255,0), self.rect)
+
+    def stationary(self):
+        if player.rect.colliderect(self.rect) and not self.grabbed:
+            self.grabbed = True
+            player.swing(self)
+            self.state = self.swinging
+
+    def swinging(self):
+        self._integrate()
+        self._updatependpos()
 
     def _integrate(self):
         """docstring for _integrateangles"""
@@ -88,21 +104,13 @@ class Swing:
         self.omega = omega2
         self.phi = phi2
 
-    def update(self):
+    def _updatependpos(self):
+        dx = self.r*math.cos(self.phi)
+        dy = self.r*math.sin(self.phi)
+        self.pendx = self.posx + int(dx)
+        self.pendy = self.posy + int(dy)
 
-        if player.rect.colliderect(self.rect) and not (not player.swinging and self.grabbed):
-            player.doswing(self)
 
-        self._integrate()
-        self._updatependpos()
-
-        pygame.draw.line(screen, self.color,
-                         (self.posx-camera.left, self.posy),
-                         (self.pendx-camera.left, self.pendy),
-                         2)
-        self.rect.centerx = self.pendx-camera.left
-        self.rect.centery = self.pendy
-        screen.fill((255,255,0), self.rect)
 
 class Ball:
     def __init__(self, position, size, color):
@@ -114,50 +122,51 @@ class Ball:
         self.movingLeft = False
         self.movingRight = False
         self.facingForward = True
-        self.jumping = False
-        self.falling = True 
-        self.swinging = False
         self.fallingFrames = 1
         self.dx = 3
         self.dy = 0
+        self.state = self.falling
 
     def update(self):
-        
-        self.checkForGround()
-        self.updateVerticalMovement()
-        self.updateHorizontalMovement()
+        self.state()
+        self.resetSignals()
         self.updateCollisionRect()
         self.draw()
 
-    def checkForGround(self):
-        self.falling = True 
+    def resetSignals(self):
+        self.s_jump = False
+
+    def falling(self):
         for tile in tiles:
             if self.rect.colliderect(tile.rect):
                 if self.dy > 0:
-                    self.jumping = False
-                self.falling = False 
+                    self.state = self.grounded
                 self.fallingFrames = 1
 
-    def updateVerticalMovement(self):
-        if self.jumping:
-            self.dy=10-self.jumpFrames/4;
-            if self.jumpFrames <= 3:
-                self.jumping = False
-            self.jumpFrames -= 1
-        elif self.falling:
-            if self.dy < MAX_DY:
-                self.dy+=self.fallingFrames/4;
-                self.fallingFrames +=1
-        else:
-            self.dy = 0
-
+        if self.dy < MAX_DY:
+            self.dy+=self.fallingFrames/4;
+            self.fallingFrames +=1
         self.posy += self.dy
+        self.updateHorizontalMovement()
 
-        if self.swinging:
-            if self.jumping:
-                self.swinging = False
-            self.posx = self.swing.pendx
-            self.posy = self.swing.pendy
+    def jumping(self):
+        print "jumping!"
+        self.dy=10-self.jumpFrames/4;
+        if self.jumpFrames <= 3:
+            self.state = self.falling
+        self.jumpFrames -= 1
+        self.posy += self.dy
+        self.updateHorizontalMovement()
+    
+    def grounded(self):
+        if self.s_jump:
+            print "jump!"
+            self.state = self.jumping
+        self.updateHorizontalMovement()
+
+    def swinging(self):
+        self.posx = self.swing.pendx
+        self.posy = self.swing.pendy
 
     def updateHorizontalMovement(self):
         if self.movingLeft:
@@ -175,13 +184,13 @@ class Ball:
         screen.fill((255,255,0), self.rect)
         
     def jump(self):
-        self.jumping = True
         self.jumpFrames = 80;
+        self.s_jump = True
 
 # TODO: implement as states, i.e jumping, running, swinging
-    def doswing(self, swing):
+    def swing(self, swing):
         self.swing = swing
-        self.swinging = True
+        self.state = self.swinging
 
 
     def fire(self):
@@ -341,7 +350,7 @@ while 1:
             elif event.key == K_SPACE and framesSinceLastBottle > 20:
                 player.fire()
                 framesSinceLastBottle = 0
-            elif event.key == K_w and not player.jumping:
+            elif event.key == K_w:
                 player.jump()
             elif event.key == K_a:
                 player.movingLeft = True
