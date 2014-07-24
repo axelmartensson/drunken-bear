@@ -1,15 +1,15 @@
 import pygame
-import sys
+import sys, math
 from pygame.locals import *
 
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 PIXELS_PER_METER = 10
 MAX_DY = 10 
+G = 9.81
 
 class Level(object):
     def __init__(self):
-        print "Initializing Game"
         self.level = 0
     def load(self, number):
         pix=PIXELS_PER_METER
@@ -24,6 +24,8 @@ class Level(object):
                     objects.append(Tile(position=(x*pix,y*pix)))
                 elif char == "x":
                     objects.append(Badguy((x*pix,y*pix), 20, (0,255,0)))
+                elif char == "L":
+                    objects.append(Swing((x*pix,y*pix), (0,255,0)))
                 x += 1
             y += 1
             x=0
@@ -41,6 +43,52 @@ class Tile(object):
         self.rect.topleft=(self.posx-camera.left,self.posy)
         #screen.fill((255,255,0), self.rect)
  
+# PERLIN NOISE?
+class Swing:
+    def __init__(self, position, color):
+        self.posx, self.posy = position
+        self.rect = pygame.rect.Rect(self.posx, self.posy, 10, 20)
+        self.color = color
+        self.grabbed = False
+
+        self.dt = 200/1000.0# milliseconds
+        self.r = 100
+        self.damp = 1/20.0
+        self.phi = math.pi/32
+        self.omega = 0
+        self._updatependpos()
+    def _updatependpos(self):
+        dx = self.r*math.cos(self.phi)
+        dy = self.r*math.sin(self.phi)
+        self.pendx = self.posx + int(dx)
+        self.pendy = self.posy + int(dy)
+
+    def _integrate(self):
+        """docstring for _integrateangles"""
+        
+        omega2 = self.omega + self.dt*(-G/self.r*math.sin(self.phi-math.pi/2)
+                                       - self.damp*self.omega) 
+        phi2 = self.phi + self.dt*self.omega 
+
+        self.omega = omega2
+        self.phi = phi2
+
+    def update(self):
+
+        if player.rect.colliderect(self.rect) and not (not player.swinging and self.grabbed):
+            player.doswing(self)
+
+        self._integrate()
+        self._updatependpos()
+
+        pygame.draw.line(screen, self.color,
+                         (self.posx-camera.left, self.posy),
+                         (self.pendx-camera.left, self.pendy),
+                         2)
+        self.rect.centerx = self.pendx-camera.left
+        self.rect.centery = self.pendy
+        screen.fill((255,255,0), self.rect)
+
 class Ball:
     def __init__(self, position, size, color):
         self.posx, self.posy = position
@@ -53,6 +101,7 @@ class Ball:
         self.facingForward = True
         self.jumping = False
         self.falling = True 
+        self.swinging = False
         self.fallingFrames = 1
         self.dy = 0
 
@@ -71,20 +120,29 @@ class Ball:
             if self.jumpFrames <= 3:
                 self.jumping = False
             self.jumpFrames -= 1
-            self.posy += self.dy    
-
         elif self.falling:
             if self.dy < MAX_DY:
                 self.dy+=self.fallingFrames/4;
                 self.fallingFrames +=1
-            self.posy += self.dy    
         else:
             self.dy = 0
-        dx = 3
+        self.posy += self.dy    
+
         if self.movingLeft:
-            self.posx -= dx
-        if self.movingRight:
-            self.posx += dx
+            self.dx = 3
+        elif self.movingRight:
+            self.dx = -3
+        else:
+            self.dx = 0
+        self.posx += self.dx    
+
+        if self.swinging:
+            if self.jumping:
+                self.swinging = False
+            self.posx = self.swing.pendx
+            self.posy = self.swing.pendy
+
+
         pygame.draw.circle(screen, self.color,(self.posx-camera.left,
                                                self.posy), self.size)
         self.rect.centerx = self.posx-camera.left
@@ -95,10 +153,27 @@ class Ball:
         self.jumping = True
         self.jumpFrames = 80;
 
+# TODO: implement as states, i.e jumping, running, swinging
+    def doswing(self, swing):
+        self.swing = swing
+        self.swinging = True
+
+
 class Player(Ball):
+    def __init__(self, position, size, color):
+        Ball.__init__(self, position, size, color)
+        self.framesSinceLastBottle = 40
+
     def update(self):
        Ball.update(self)
+       if self.framesSinceLastBottle < 40:
+            self.framesSinceLastBottle += 1
        camera.centerx = self.posx
+    def throw_bottle(self):
+        if self.framesSinceLastBottle >= 40:
+                objects.append(Bottle((self.posx, self.posy-5), 10, (0,0,0),
+                                     self.facingForward))
+                self.framesSinceLastBottle = 0
 
 class Badguy(Ball):
     def __init__(self, position, size, color):
@@ -170,10 +245,8 @@ while 1:
                 sys.exit()
             elif event.key == K_F1:
                 pygame.display.toggle_fullscreen()
-            elif event.key == K_SPACE and framesSinceLastBottle > 20:
-                objects.append(Bottle((player.posx, player.posy-5), 10, (0,0,0),
-                                     player.facingForward))
-                framesSinceLastBottle = 0
+            elif event.key == K_SPACE:
+                player.throw_bottle()
             elif event.key == K_w and not player.jumping:
                 player.jump()
             elif event.key == K_a:
