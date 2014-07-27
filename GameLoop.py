@@ -2,10 +2,11 @@ import pygame
 import sys, math
 from pygame.locals import *
 
+FPS = 60
 SCREEN_WIDTH = 800
 SCREEN_HEIGHT = 600
 PIXELS_PER_METER = 10
-MAX_DY = 3
+MAX_DY = 10
 G = 9.81
 
 tiles = []
@@ -66,7 +67,7 @@ class Swing:
         self.color = color
         self.grabbed = False
 
-        self.dt = 200/1000.0# milliseconds
+        self.dt = 100/1000.0# milliseconds
         self.r = 100
         self.damp = 1/20.0
         self.phi = math.pi/32
@@ -87,15 +88,18 @@ class Swing:
     def stationary(self):
         if player.rect.colliderect(self.rect) and not self.grabbed:
             self.grabbed = True
-            player.swing(self)
+            player.swingfrom(self)
             self.state = self.swinging
 
     def swinging(self):
         self._integrate()
+        oldx = self.pendx
         self._updatependpos()
+        if not player.rect.colliderect(self.rect):
+            self.grabbed = False
+            self.state = self.stationary
 
     def _integrate(self):
-        """docstring for _integrateangles"""
         
         omega2 = self.omega + self.dt*(-G/self.r*math.sin(self.phi-math.pi/2)
                                        - self.damp*self.omega) 
@@ -105,10 +109,10 @@ class Swing:
         self.phi = phi2
 
     def _updatependpos(self):
-        dx = self.r*math.cos(self.phi)
-        dy = self.r*math.sin(self.phi)
-        self.pendx = self.posx + int(dx)
-        self.pendy = self.posy + int(dy)
+        x = self.r*math.cos(self.phi)
+        y = self.r*math.sin(self.phi)
+        self.pendx = self.posx + int(x)
+        self.pendy = self.posy + int(y)
 
 
 
@@ -123,7 +127,7 @@ class Ball:
         self.movingRight = False
         self.facingForward = True
         self.fallingFrames = 1
-        self.dx = 3
+        self.dx = 4
         self.dy = 0
         self.state = self.falling
 
@@ -137,36 +141,53 @@ class Ball:
         self.s_jump = False
 
     def falling(self):
-        for tile in tiles:
-            if self.rect.colliderect(tile.rect):
-                if self.dy > 0:
-                    self.state = self.grounded
-                self.fallingFrames = 1
-
         if self.dy < MAX_DY:
-            self.dy+=self.fallingFrames/4;
+            self.dy+=self.fallingFrames/2;
             self.fallingFrames +=1
+
+        drect = self.drect(0, self.dy)
+        tile = getTouchingTile(drect)
+        if tile:
+            self.dy = tile.posy-(self.posy + self.size/2)+1
+            self.state = self.grounded
+            self.fallingFrames = 1
+
         self.posy += self.dy
         self.updateHorizontalMovement()
 
+    def drect(self, dx, dy):
+        """ returns the AABB encompassing the displacement (dx, dy)"""
+        dimensions = (self.size+abs(dx),self.size+abs(dy))
+        center = (self.posx-camera.left+dx, self.posy+dy)
+        drect = pygame.rect.Rect((0,0),dimensions)
+        drect.center = center
+        return drect
+
     def jumping(self):
-        print "jumping!"
-        self.dy=10-self.jumpFrames/4;
-        if self.jumpFrames <= 3:
+        self.dy=-self.jumpFrames/2;
+        if self.dy <= 0:
             self.state = self.falling
         self.jumpFrames -= 1
         self.posy += self.dy
         self.updateHorizontalMovement()
     
     def grounded(self):
-        if self.s_jump:
-            print "jump!"
-            self.state = self.jumping
         self.updateHorizontalMovement()
+        tile = getTouchingTile(self.rect)
+        if tile:
+            self.posy = tile.posy - self.size/2+1
+        else:
+            self.state = self.falling
+        if self.s_jump:
+            self.state = self.jumping
 
     def swinging(self):
         self.posx = self.swing.pendx
         self.posy = self.swing.pendy
+        if self.s_jump:
+            #TODO: conservation of velocity along x-axis
+            self.dx = 3
+            self.state = self.falling
 
     def updateHorizontalMovement(self):
         if self.movingLeft:
@@ -184,14 +205,12 @@ class Ball:
         screen.fill((255,255,0), self.rect)
         
     def jump(self):
-        self.jumpFrames = 80;
+        self.jumpFrames = 60;
         self.s_jump = True
 
-# TODO: implement as states, i.e jumping, running, swinging
-    def swing(self, swing):
+    def swingfrom(self, swing):
         self.swing = swing
         self.state = self.swinging
-
 
     def fire(self):
         bottles.append(Bottle((self.posx, self.posy-5), 10, (0,0,0),
@@ -224,19 +243,21 @@ class Badguy(Ball):
                 self.die()
             else:
                 player.die()
-    def checkForGround(self):
-        self.falling = True 
-        for tile in tiles:
-            if self.rect.colliderect(tile.rect):
-                if self.dy > 0:
-                    self.jumping = False
-                self.falling = False 
-                self.fallingFrames = 1
-                
-                if tile.endTile:
-                    self.turnAround()
-                return
-            
+
+    def grounded(self):
+        Ball.grounded(self)
+        tile = getTouchingTile(self.rect)
+        if tile and tile.endTile:
+            self.turnAround()
+            self.state = self.turning
+
+    def turning(self):
+        Ball.grounded(self)
+        tile = getTouchingTile(self.rect)
+        if tile and not tile.endTile:
+            self.state = self.grounded
+
+        
     def turnAround(self):
             if self.movingRight:
                 self.movingLeft = True
@@ -286,31 +307,31 @@ class Bottle(Ball):
             self.dx = 4 
         else:
             self.dx = -4
-    def update(self):
-        self.checkForBadguys()
-        Ball.update(self)
-
+        self.state = self.falling
 
     def checkForBadguys(self):
+        drect = self.drect(self.dx, self.dy)
         for badguy in badguys:
-            if self.rect.colliderect(badguy.rect):
+            if drect.colliderect(badguy.rect):
                 badguy.die()
                 self.die()
                 return
             
     def checkForGround(self):
+        drect = self.drect(self.dx, self.dy)
         for tile in tiles:
-            if self.rect.colliderect(tile.rect):
+            if drect.colliderect(tile.rect):
                 self.die()
                 return
             
-    def updateHorizontalMovement(self):
-        self.posx += self.dx
-        
-    def updateVerticalMovement(self):
+    def falling(self):
+        self.checkForBadguys()
+        self.checkForGround()
         self.dy=13-self.fallingFrames/4;
-        self.fallingFrames -= 1
+        self.fallingFrames -=1
         self.posy += self.dy
+        self.posx += self.dx
+
     def die(self):
         bottles.remove(self)
 
@@ -319,6 +340,11 @@ class BadBottle(Bottle):
             if self.rect.colliderect(player.rect):
                 player.die()
                 self.die()
+
+def getTouchingTile(rect):
+    for tile in tiles:
+        if rect.colliderect(tile.rect):
+            return tile
 
 def updateAll(objects):
     for obj in objects:
@@ -374,5 +400,5 @@ while 1:
     
     if framesSinceLastBottle < 40:
         framesSinceLastBottle += 1
-    clock.tick(60)
+    clock.tick(FPS)
     pygame.display.flip()
